@@ -43,6 +43,7 @@ const (
 // DistributionService 分发服务
 type DistributionService struct {
 	distModel *module.Distribution
+	adnModel  *module.AdnDmpCrowd
 	crowdRule *module.CrowdRule
 	ctx       context.Context
 	cancel    context.CancelFunc
@@ -69,11 +70,11 @@ type taskProgress struct {
 }
 
 // NewDistributionService 创建新的分发服务
-func NewDistributionService(model *module.Distribution) *DistributionService {
+func NewDistributionService(model *module.Distribution, adnModel *module.AdnDmpCrowd) *DistributionService {
 	ctx, cancel := context.WithCancel(context.Background())
 	srv := &DistributionService{
 		distModel: model,
-		crowdRule: &module.CrowdRule{},
+		adnModel:  adnModel,
 		ctx:       ctx,
 		cancel:    cancel,
 		taskChan:  make(chan *module.Distribution),
@@ -391,7 +392,8 @@ func (s *DistributionService) processByStrategyID(task *module.Distribution, str
 	}
 	wg.Wait()
 
-	s.flushProgress() // 确保所有进度都被刷新到数据库
+	totalProcessed := s.flushProgress() // 确保所有进度都被刷新到数据库，并获取总处理数量
+	s.updateAdnDmpCrowd(strategyID, totalProcessed)
 	s.finalizeTask(task, TaskDoneStatus, nil)
 	return nil
 }
@@ -511,8 +513,9 @@ func (s *DistributionService) finalizeTask(task *module.Distribution, status int
 }
 
 // flushProgress 将内存中的进度刷新到数据库
-func (s *DistributionService) flushProgress() {
+func (s *DistributionService) flushProgress() int64 {
 	now := time.Now()
+	var totalCurrentCount int64
 
 	s.progressMap.Range(func(key, value interface{}) bool {
 		taskID := key.(int)
@@ -521,6 +524,9 @@ func (s *DistributionService) flushProgress() {
 		// 检查是否需要更新
 		currentCount := atomic.LoadInt64(&progress.currentCount)
 		lastDBCount := atomic.LoadInt64(&progress.lastDBCount)
+
+		// 累加总的当前计数
+		totalCurrentCount += currentCount
 
 		log.Printf("Flushing progress for task %d: currentCount=%d, lastDBCount=%d, lastUpdate=%v", taskID, currentCount, lastDBCount, progress.lastUpdate)
 		if err := s.distModel.UpdateLineCount(taskID, currentCount); err != nil {
@@ -531,6 +537,27 @@ func (s *DistributionService) flushProgress() {
 		}
 		return true
 	})
+
+	return totalCurrentCount
+}
+
+// 更新人群包任务到 adn_dmp_crowd
+func (s *DistributionService) updateAdnDmpCrowd(strategyID, totalProcessed int64) error {
+	crowdRule, err := s.crowdRule.GetCrowd(strategyID)
+	if err != nil {
+		log.Printf("Failed to update adn_dmp_crowd for strategyID %d: %v", strategyID, err)
+	}
+	adnCrowd := module.AdnDmpCrowd{
+		CrowdID:         int(crowdRule.ID),
+		CrowdName:       crowdRule.Name,
+		Desc:            crowdRule.Desc,
+		InvolveMember:   int(totalProcessed),
+		CrowdCreateTime: int(crowdRule.CreateTime.Unix()),
+		CrowdUpdateTime: int(crowdRule.UpdateTime.Unix()),
+		CreateTime:      time.Now(),
+		UpdateTime:      time.Now(),
+	}
+	return s.adnModel.Insert(adnCrowd)
 }
 
 // flushAllProgress 刷新所有进度到数据库

@@ -37,7 +37,7 @@ func setupDistributionJobs() {
 
 		// 创建分发服务实例
 		if distributionSvc == nil || !distributionSvc.IsRunning {
-			distributionSvc = service.NewDistributionService(&module.Distribution{})
+			distributionSvc = service.NewDistributionService(&module.Distribution{}, &module.AdnDmpCrowd{})
 		}
 		// 启动任务调度器（会在后台持续运行）
 		distributionSvc.StartTaskScheduler()

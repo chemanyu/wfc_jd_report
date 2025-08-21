@@ -104,3 +104,17 @@ func (c *CrowdRule) UpdateCrowdRule(ruleID int, status int8, filePath string) er
 
 	return db.Model(&CrowdRule{}).Where("id = ?", ruleID).Updates(rule).Error
 }
+
+// 获取人群包信息，id， name， desc， create_id， create_name, create_time, update_time
+func (c *CrowdRule) GetCrowd(ruleID int64) (*CrowdRule, error) {
+	db := mysqldb.GetConnected()
+	var crowd CrowdRule
+	err := db.Model(&CrowdRule{}).
+		Select("id, name, desc, create_id, create_name, create_time, update_time").
+		Where("id = ?", ruleID).
+		First(&crowd).Error
+	if err != nil {
+		return nil, err
+	}
+	return &crowd, nil
+}

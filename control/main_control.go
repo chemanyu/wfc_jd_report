@@ -54,6 +54,8 @@ func init() {
 	// 加载配置文件
 	config = core.LoadConfig(*cfg)
 	mysqldb.InitMysql()
+	// 初始化 ADN 数据库连接
+	mysqldb.InitAdnMysql()
 	redis.C32_Redis_Pools.Init_RedisPool(config.REDIS_POOL_DB_CRC)
 	// 初始化 Redis
 	redis.Mates.InitRedis(config.REDIS_POOL_DB)

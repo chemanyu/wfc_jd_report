@@ -11,6 +11,7 @@ import (
 // Config 结构体定义了需要读取的配置项
 type Config struct {
 	MYSQL_DB          string
+	MYSQL_ADN_DB      string // 新增 ADN 数据库配置
 	DORIS_DB          string
 	OUTPUT_DIR        string
 	REDIS_DB          string
@@ -36,9 +37,10 @@ func LoadConfig(cfg string) *Config {
 	viper.ReadInConfig()
 
 	config = &Config{
-		MYSQL_DB:   getViperStringValue("MYSQL_DB"),
-		DORIS_DB:   getViperStringValue("DORIS_DB"),
-		OUTPUT_DIR: getViperStringValue("OUTPUT_DIR"),
+		MYSQL_DB:     getViperStringValue("MYSQL_DB"),
+		MYSQL_ADN_DB: getViperStringValue("MYSQL_ADN_DB"), // 新增 ADN 数据库配置
+		DORIS_DB:     getViperStringValue("DORIS_DB"),
+		OUTPUT_DIR:   getViperStringValue("OUTPUT_DIR"),
 		//REDIS_DB:          getViperStringValue("REDIS_DB"),
 		REDIS_POOL_DB:     getViperStringValue("REDIS_POOL_DB"),
 		REDIS_POOL_DB_CRC: getViperStringValue("REDIS_POOL_DB_CRC"),
