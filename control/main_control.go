@@ -2,10 +2,6 @@ package control
 
 import (
 	"context"
-	mysqldb "dmp_distribution/common/mysql"
-	redis "dmp_distribution/common/redis"
-	"dmp_distribution/core"
-	handlers "dmp_distribution/handler"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -13,6 +9,9 @@ import (
 	"os/signal"
 	"strings"
 	"time"
+	mysqldb "wfc_jd_report/common/mysql"
+	"wfc_jd_report/core"
+	handlers "wfc_jd_report/handler"
 
 	"github.com/fvbock/endless"
 	"github.com/gin-contrib/pprof"
@@ -53,13 +52,6 @@ func init() {
 	// 加载配置文件
 	config = core.LoadConfig(*cfg)
 	mysqldb.InitMysql()
-	// 初始化 ADN 数据库连接
-	mysqldb.InitAdnMysql()
-	redis.C32_Redis_Pools.Init_RedisPool(config.REDIS_POOL_DB_CRC)
-	// 初始化 Redis
-	redis.Mates.InitRedis(config.REDIS_POOL_DB)
-	// 初始化 Doris 数据库连接
-	mysqldb.InitDoris()
 }
 
 func MainControl() {

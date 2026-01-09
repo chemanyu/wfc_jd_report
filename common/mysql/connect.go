@@ -1,9 +1,9 @@
 package mysqldb
 
 import (
-	"dmp_distribution/core"
 	"log"
 	"time"
+	"wfc_jd_report/core"
 
 	_ "github.com/go-sql-driver/mysql"
 	"gorm.io/driver/mysql"

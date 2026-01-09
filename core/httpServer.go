@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/tls"
-	ginprom "dmp_distribution/common/ginporm"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	ginprom "wfc_jd_report/common/ginporm"
 
 	"github.com/valyala/fasthttp"
 

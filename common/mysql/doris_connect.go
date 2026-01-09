@@ -2,10 +2,10 @@ package mysqldb
 
 import (
 	"database/sql"
-	"dmp_distribution/core"
 	"fmt"
 	"log"
 	"time"
+	"wfc_jd_report/core"
 
 	_ "github.com/go-sql-driver/mysql"
 )

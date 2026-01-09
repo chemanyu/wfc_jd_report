@@ -1,7 +1,7 @@
 package main
 
 import (
-	"dmp_distribution/control"
+	"wfc_jd_report/control"
 )
 
 func main() {

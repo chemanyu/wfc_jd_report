@@ -1,12 +1,12 @@
 package ginporm
 
 import (
-	"dmp_distribution/common"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"wfc_jd_report/common"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"

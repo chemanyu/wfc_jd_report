@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	simplejson "dmp_distribution/common/bitly/go-simplejson"
+	simplejson "wfc_jd_report/common/bitly/go-simplejson"
 )
 
 const (

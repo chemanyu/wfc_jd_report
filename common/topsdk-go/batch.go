@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	"dmp_distribution/common/bitly/go-simplejson"
+	"wfc_jd_report/common/bitly/go-simplejson"
 )
 
 const (

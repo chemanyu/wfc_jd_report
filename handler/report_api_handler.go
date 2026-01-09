@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"dmp_distribution/service"
 	"log"
 	"net/http"
+	"wfc_jd_report/service"
 
 	"github.com/gin-gonic/gin"
 )
