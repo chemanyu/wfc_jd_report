@@ -15,6 +15,7 @@ var GetReportApiHandler = new(ReportApiHandler)
 func init() {
 	GetReportApiHandler.getMapping("order/query", getOrderQuery)
 	GetReportApiHandler.getMapping("order/bonus/query", getOrderBonusQuery)
+	GetReportApiHandler.getMapping("sh/promotion/get", getShPromotion)
 }
 
 func getOrderQuery(ctx *gin.Context) {
@@ -25,4 +26,9 @@ func getOrderQuery(ctx *gin.Context) {
 func getOrderBonusQuery(ctx *gin.Context) {
 	// 调用服务层，服务层会直接写入响应
 	service.GetJdBonusOrder(ctx)
+}
+
+func getShPromotion(ctx *gin.Context) {
+	// 调用服务层，服务层会直接写入响应
+	service.GetJdShPromotion(ctx)
 }
