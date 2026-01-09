@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"sort"
@@ -19,6 +20,7 @@ import (
 
 var (
 	AdToolWfcTokenMapper = module.AdToolWfcToken{}
+	WfcAccountMapping    map[string]bool // 新增：wfc映射
 )
 
 // JdOrderResponse JD API 响应结构体
@@ -31,11 +33,11 @@ type JdOrderResponse struct {
 
 // JdQueryResult JD API 查询结果
 type JdQueryResult struct {
-	Code      int               `json:"code"`
-	Message   string            `json:"message"`
-	RequestId string            `json:"requestId"`
-	HasMore   bool              `json:"hasMore"`
-	Data      []dto.JdOrderInfo `json:"data"`
+	Code      int                `json:"code"`
+	Message   string             `json:"message"`
+	HasMore   bool               `json:"hasMore"`
+	Data      []dto.OrderRowResp `json:"data"`
+	RequestId string             `json:requestId`
 }
 
 func GetJdOrder(ctx *gin.Context) {
@@ -59,16 +61,17 @@ func GetJdOrder(ctx *gin.Context) {
 		return
 	}
 
-	// 返回订单数据
+	// 返回京东 API 原始格式的数据
 	ctx.JSON(http.StatusOK, gin.H{
-		"code": 0,
-		"data": orders,
-		"msg":  "success",
+		"jd_union_open_order_row_query_responce": gin.H{
+			"code":        "0",
+			"queryResult": orders,
+		},
 	})
 }
 
 // fetchJdOrdersPage 获取单页JD订单数据
-func fetchJdOrdersPage(ctx *gin.Context, jdAppkey, jdSecretkey string) (*JdOrderResponse, error) {
+func fetchJdOrdersPage(ctx *gin.Context, jdAppkey, jdSecretkey string) (*JdQueryResult, error) {
 	// 从 ctx 获取所有请求参数
 	method := ctx.DefaultQuery("method", "jd.union.open.order.row.query")
 	format := ctx.DefaultQuery("format", "json")
@@ -101,7 +104,7 @@ func fetchJdOrdersPage(ctx *gin.Context, jdAppkey, jdSecretkey string) (*JdOrder
 	sign := generateJdSign(params, jdSecretkey)
 
 	// 构建请求URL，所有参数拼接在URL上
-	apiUrl := "https://美数域名/wfc/jd/order/query"
+	apiUrl := "https://api.jd.com/routerjson"
 	values := url.Values{}
 	values.Set("method", method)
 	values.Set("app_key", jdAppkey)
@@ -114,17 +117,18 @@ func fetchJdOrdersPage(ctx *gin.Context, jdAppkey, jdSecretkey string) (*JdOrder
 
 	requestUrl := apiUrl + "?" + values.Encode()
 
-	fmt.Println("Request URL:", requestUrl)
+	log.Println("requestUrl: ", requestUrl)
 
 	// 发送HTTP请求
 	var response JdOrderResponse
 	err := core.Fast_Http("", requestUrl, "", "GET", func(content []byte) error {
 		resp := string(content)
+		//log.Println("resp: ", resp)
 		// 解析响应
 		if err := jsoniter.Unmarshal(content, &response); err != nil {
 			return fmt.Errorf("failed to unmarshal response: %w", err)
 		}
-		if strings.Contains(resp, `success":false`) {
+		if strings.Contains(resp, `"message": "success`) {
 			return errors.New(requestUrl + "\n" + resp)
 		}
 		return nil
@@ -136,7 +140,7 @@ func fetchJdOrdersPage(ctx *gin.Context, jdAppkey, jdSecretkey string) (*JdOrder
 
 	// 检查响应状态
 	if response.JdUnionOpenOrderRowQueryResponse.Code != "0" {
-		return nil, fmt.Errorf("JD API error: code=%s", response.JdUnionOpenOrderRowQueryResponse.Code)
+		return nil, fmt.Errorf("JD API error: response_code=%s", response.JdUnionOpenOrderRowQueryResponse)
 	}
 
 	// 二次解析queryResult字符串
@@ -152,14 +156,25 @@ func fetchJdOrdersPage(ctx *gin.Context, jdAppkey, jdSecretkey string) (*JdOrder
 			queryResult.Message)
 	}
 
-	// 处理订单数据，设置附加字段
+	// 处理订单数据，设置附加字段并过滤账户
+	var filterResult []dto.OrderRowResp
 	for i := range queryResult.Data {
+		_, exists := WfcAccountMapping[queryResult.Data[i].Account]
+		log.Println("account_exist: ", exists, queryResult.Data[i].Account)
+		if !exists { // 账户不存在
+			continue
+		}
+		// 设置附加字段
 		queryResult.Data[i].ParentOrderId = queryResult.Data[i].ParentId
 		queryResult.Data[i].ClickId = queryResult.Data[i].Ext1
 		queryResult.Data[i].OrderStatus = queryResult.Data[i].ValidCode
+		filterResult = append(filterResult, queryResult.Data[i])
 	}
+	queryResult.Data = filterResult
 
-	return &response, nil
+	// 将解析后的 queryResult 重新序列化为 JSON 对象（而不是字符串）
+	// 但这里我们直接返回 queryResult，让上层处理
+	return &queryResult, nil
 }
 
 // 生成JD API签名

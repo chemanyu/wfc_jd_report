@@ -11,6 +11,7 @@ import (
 	"time"
 	mysqldb "wfc_jd_report/common/mysql"
 	"wfc_jd_report/core"
+	"wfc_jd_report/cron"
 	handlers "wfc_jd_report/handler"
 
 	"github.com/fvbock/endless"
@@ -52,6 +53,9 @@ func init() {
 	// 加载配置文件
 	config = core.LoadConfig(*cfg)
 	mysqldb.InitMysql()
+
+	// 初始化定时任务
+	cron.InitCronJobs()
 }
 
 func MainControl() {

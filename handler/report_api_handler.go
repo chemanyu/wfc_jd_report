@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"log"
-	"net/http"
 	"wfc_jd_report/service"
 
 	"github.com/gin-gonic/gin"
@@ -15,17 +13,10 @@ type ReportApiHandler struct {
 var GetReportApiHandler = new(ReportApiHandler)
 
 func init() {
-	GetReportApiHandler.postMapping("order/query", getOrderQuery)
+	GetReportApiHandler.getMapping("order/query", getOrderQuery)
 }
 
 func getOrderQuery(ctx *gin.Context) {
-	// 创建分发服务实例
+	// 调用服务层，服务层会直接写入响应
 	service.GetJdOrder(ctx)
-
-	log.Printf("[Cron] Distribution service started successfully")
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"message": "report_api retrieved successfully",
-	})
 }
