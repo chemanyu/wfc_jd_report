@@ -1,45 +1,38 @@
 package service
 
 import (
-	"crypto/md5"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 	"time"
 	"wfc_jd_report/core"
 	"wfc_jd_report/dto"
-	"wfc_jd_report/module"
 
 	"github.com/gin-gonic/gin"
 	jsoniter "github.com/json-iterator/go"
 )
 
-var (
-	AdToolWfcTokenMapper = module.AdToolWfcToken{}
-	WfcAccountMapping    map[string]bool // 新增：wfc映射
-)
-
 // JdOrderResponse JD API 响应结构体
-type JdOrderResponse struct {
-	JdUnionOpenOrderRowQueryResponse struct {
+type JdOrderBonusResponse struct {
+	JdUnionOpenOrderBonusQueryResponce struct {
 		Code        string `json:"code"`
 		QueryResult string `json:"queryResult"` // 注意：这是一个JSON字符串，需要二次解析
-	} `json:"jd_union_open_order_row_query_responce"`
+	} `json:"jd_union_open_order_bonus_query_responce"`
 }
 
 // JdQueryResult JD API 查询结果
-type JdQueryResult struct {
-	Code      int                `json:"code"`
-	Message   string             `json:"message"`
-	HasMore   bool               `json:"hasMore"`
-	Data      []dto.OrderRowResp `json:"data"`
-	RequestId string             `json:requestId`
+type JdQueryBonusResult struct {
+	Code        int                     `json:"code"`
+	Message     string                  `json:"message"`
+	HasMore     bool                    `json:"hasMore"`
+	Data        []dto.OrderBonusRowResp `json:"data"`
+	RequestId   string                  `json:requestId`
+	ApiCodeEnum string                  `json:apiCodeEnum`
 }
 
-func GetJdOrder(ctx *gin.Context) {
+func GetJdBonusOrder(ctx *gin.Context) {
 	// 获取请求参数中的 app_key
 	appKey := ctx.Query("app_key")
 	if appKey == "" {
@@ -54,9 +47,9 @@ func GetJdOrder(ctx *gin.Context) {
 		return
 	}
 
-	orders, err := fetchJdOrdersPage(ctx, jdAppkey, jdSecretkey)
+	orders, err := fetchJdBonusOrdersPage(ctx, jdAppkey, jdSecretkey)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to fetch orders: %v", err)})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to fetch orders: %v", err.Error())})
 		return
 	}
 
@@ -70,9 +63,9 @@ func GetJdOrder(ctx *gin.Context) {
 }
 
 // fetchJdOrdersPage 获取单页JD订单数据
-func fetchJdOrdersPage(ctx *gin.Context, jdAppkey, jdSecretkey string) (*JdQueryResult, error) {
+func fetchJdBonusOrdersPage(ctx *gin.Context, jdAppkey, jdSecretkey string) (*JdQueryBonusResult, error) {
 	// 从 ctx 获取所有请求参数
-	method := ctx.DefaultQuery("method", "jd.union.open.order.row.query")
+	method := ctx.DefaultQuery("method", "jd.union.open.order.bonus.query")
 	format := ctx.DefaultQuery("format", "json")
 	version := ctx.DefaultQuery("v", "1.0")
 	signMethod := ctx.DefaultQuery("sign_method", "md5")
@@ -119,9 +112,10 @@ func fetchJdOrdersPage(ctx *gin.Context, jdAppkey, jdSecretkey string) (*JdQuery
 	log.Println("requestUrl: ", requestUrl)
 
 	// 发送HTTP请求
-	var response JdOrderResponse
+	var response JdOrderBonusResponse
 	err := core.Fast_Http("", requestUrl, "", "GET", func(content []byte) error {
 		resp := string(content)
+		log.Println("resp: ", resp)
 		if strings.Contains(resp, "error_response") {
 			return fmt.Errorf("errInfo: %s", resp)
 		}
@@ -137,13 +131,13 @@ func fetchJdOrdersPage(ctx *gin.Context, jdAppkey, jdSecretkey string) (*JdQuery
 	}
 
 	// 检查响应状态
-	if response.JdUnionOpenOrderRowQueryResponse.Code != "0" {
+	if response.JdUnionOpenOrderBonusQueryResponce.Code != "0" {
 		return nil, fmt.Errorf("JD API error: response_code=%s", response)
 	}
 
 	// 二次解析queryResult字符串
-	var queryResult JdQueryResult
-	err = jsoniter.Unmarshal([]byte(response.JdUnionOpenOrderRowQueryResponse.QueryResult), &queryResult)
+	var queryResult JdQueryBonusResult
+	err = jsoniter.Unmarshal([]byte(response.JdUnionOpenOrderBonusQueryResponce.QueryResult), &queryResult)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse queryResult: %w", err)
 	}
@@ -153,19 +147,18 @@ func fetchJdOrdersPage(ctx *gin.Context, jdAppkey, jdSecretkey string) (*JdQuery
 			queryResult.Code,
 			queryResult.Message)
 	}
+	if len(queryResult.Data) != 0 {
+		queryResult.HasMore = true
+	}
 
 	// 处理订单数据，设置附加字段并过滤账户
-	var filterResult []dto.OrderRowResp
+	var filterResult []dto.OrderBonusRowResp
 	for i := range queryResult.Data {
 		_, exists := WfcAccountMapping[queryResult.Data[i].Account]
 		log.Println("account_exist: ", exists, queryResult.Data[i].Account)
 		if !exists { // 账户不存在
 			continue
 		}
-		// 设置附加字段
-		queryResult.Data[i].ParentOrderId = queryResult.Data[i].ParentId
-		queryResult.Data[i].ClickId = queryResult.Data[i].Ext1
-		queryResult.Data[i].OrderStatus = queryResult.Data[i].ValidCode
 		filterResult = append(filterResult, queryResult.Data[i])
 	}
 	queryResult.Data = filterResult
@@ -173,29 +166,4 @@ func fetchJdOrdersPage(ctx *gin.Context, jdAppkey, jdSecretkey string) (*JdQuery
 	// 将解析后的 queryResult 重新序列化为 JSON 对象（而不是字符串）
 	// 但这里我们直接返回 queryResult，让上层处理
 	return &queryResult, nil
-}
-
-// 生成JD API签名
-func generateJdSign(params map[string]string, appSecret string) string {
-	// 1. 将所有请求参数按照字母先后顺序排列
-	var keys []string
-	for k := range params {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	// 2. 把所有参数名和参数值进行拼接
-	var signStr strings.Builder
-	for _, k := range keys {
-		signStr.WriteString(k)
-		signStr.WriteString(params[k])
-	}
-
-	// 3. 把appSecret夹在字符串的两端
-	finalStr := appSecret + signStr.String() + appSecret
-	fmt.Println("String to Sign:", finalStr)
-
-	// 4. 使用MD5进行加密，再转化成大写
-	hash := md5.Sum([]byte(finalStr))
-	return strings.ToUpper(fmt.Sprintf("%x", hash))
 }

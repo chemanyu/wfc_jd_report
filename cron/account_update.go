@@ -35,7 +35,7 @@ func setupDistributionJobs() {
 		if err != nil {
 			log.Printf("[Cron] Failed cron: %v", err)
 		}
-		log.Printf("[Cron] Success cron")
+		//log.Printf("[Cron] Success cron")
 	})
 
 	if err != nil {
