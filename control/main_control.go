@@ -5,7 +5,6 @@ import (
 	mysqldb "dmp_distribution/common/mysql"
 	redis "dmp_distribution/common/redis"
 	"dmp_distribution/core"
-	"dmp_distribution/cron"
 	handlers "dmp_distribution/handler"
 	"log"
 	"net/http"
@@ -46,7 +45,7 @@ func init() {
 	pflag.Parse()
 
 	DefaultHandlerBundle = &handlerBundle{
-		rootUrl:           "dmp",
+		rootUrl:           "wfc/jd",
 		apiVer:            "v1",
 		handlerEntitySets: []*handlerEntity{},
 	}
@@ -59,8 +58,6 @@ func init() {
 	redis.C32_Redis_Pools.Init_RedisPool(config.REDIS_POOL_DB_CRC)
 	// 初始化 Redis
 	redis.Mates.InitRedis(config.REDIS_POOL_DB)
-	cron.InitCronJobs()
-	cron.InitUploadCronJobs()
 	// 初始化 Doris 数据库连接
 	mysqldb.InitDoris()
 }
@@ -77,7 +74,6 @@ func MainControl() {
 
 	regHandlers := []handlers.Handler{
 		handlers.GetReportApiHandler,
-		handlers.UploadHandler,
 	}
 
 	// 注册路由
@@ -95,7 +91,6 @@ func MainControl() {
 	for _, entity := range DefaultHandlerBundle.handlerEntitySets {
 		var pathComponents []string
 		pathComponents = append(pathComponents, DefaultHandlerBundle.rootUrl)
-		pathComponents = append(pathComponents, DefaultHandlerBundle.apiVer)
 		pathComponents = append(pathComponents, entity.handlerPath)
 
 		fullPath := strings.Join(pathComponents, "/")
